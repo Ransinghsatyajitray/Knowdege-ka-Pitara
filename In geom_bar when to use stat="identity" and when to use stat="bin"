@@ -1,0 +1,14 @@
+What does stat means in ggplot?
+
+https://discuss.analyticsvidhya.com/t/what-does-stat-means-in-ggplot/6579
+
+1.Plotting the store_counts which is a column in a dataset:
+ggplot(data = store_type_agg, aes(x = store_type,y = store_type_count,fill = store_type))+
+                                            geom_bar(stat = "identity")
+This gives a plot in which the y variable is a column in the dataset.
+
+
+2.We use stat = “bin” when the variable is not a column in the dataset:
+
+ggplot(data = store_sales,aes(store_type,fill = store_type))+geom_bar(stat = “bin”)
+                                            

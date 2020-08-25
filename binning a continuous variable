@@ -1,0 +1,7 @@
+conversionsByAgeGroup <- conversionsDF %>% 
+  group_by(AgeGroup=cut(age, breaks= seq(20, 70, by = 10)) ) %>% 
+  summarise(TotalCount=n(), NumConversions=sum(conversion)) %>%
+  mutate(ConversionRate=NumConversions/TotalCount*100.0)
+
+conversionsByAgeGroup$AgeGroup <- as.character(conversionsByAgeGroup$AgeGroup)
+conversionsByAgeGroup$AgeGroup[6] <- "70+"

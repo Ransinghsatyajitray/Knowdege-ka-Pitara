@@ -1,0 +1,10 @@
+A couple of things, if you have defined a variable x = "1397758632" you don't have to declare it again, just use x. eg// as.POSIXct(x,origin="1970-01-01", tz="GMT")
+
+2nd, x="1397758632" is actually a char variable, try str(x) you would want to declare it as numeric, x=1397758632 and you should be all good.
+
+Lastly, add as.Date() if you just want the date and not the whole time stamp.
+
+So something like:
+x=1397758632
+as.POSIXct(x,origin="1970-01-01", tz="GMT")
+as.Date(as.POSIXct(x,origin="1970-01-01", tz="GMT")) # for just the date

@@ -1,0 +1,5 @@
+library(dplyr)
+data <- 
+    data %>%
+    group_by(groups) %>%
+    mutate(lag.value = dplyr::lag(value, n = 1, default = NA))

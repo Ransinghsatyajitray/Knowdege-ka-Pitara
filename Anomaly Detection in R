@@ -1,0 +1,200 @@
+# Anomaly detection is a collection of techniques designed to identify unusual data points, 
+# and are crucial for detecting fraud and for 
+# protecting computer networks from malicious activity.
+
+
+# What do we mean when we talk about anomalies?
+# DATA POINT THAT DONT FOLLOW THE SAME PATTERN AS REST OF DATA
+
+# point anomaly : summary function gives sence , boxplot
+# collective anomaly: unusual when considered togather
+
+
+
+# Testing the extremes with Grubbs' test ----
+# Only test the points from overall mean
+# assume the data are normally distributed
+# hist function is used
+library(outliers)
+
+grubbs.test(mtcars$mpg)
+
+mean(mtcars$mpg)
+sd(mtcars$mpg)
+
+G <- (33.9-mean(mtcars$mpg))/sd(mtcars$mpg)
+
+# Getting the row index of an outliers
+which.max(mtcars$mpg)  
+which.min(mtcars$mpg)
+
+
+
+# Anomalies in time series
+# Seasonal-Hydrid ESD Algo ----
+
+
+data("AirPassengers")
+library(AnomalyDetection)
+
+sales_ab <- AnomalyDetectionVec(x = msales$sales, period = 12, direction = "both", plot=T) 
+
+sales_ab$anoms # gives the anomalies index
+
+
+
+
+# View contents of dataset
+head(river)
+
+# Show the time series of nitrate concentrations with time
+plot(nitrate ~ index, data = river, type = "o")
+
+# Calculate the mean nitrate by month
+monthly_mean <- tapply(river$nitrate, river$months, FUN = mean)
+monthly_mean
+
+# Plot the monthly means 
+plot(monthly_mean, type = "o", xlab = "Month", ylab = "Monthly mean")
+
+# Create a boxplot of nitrate against months
+boxplot(nitrate ~ months, data = river)
+
+
+# Run Seasonal-Hybrid ESD for nitrate concentrations
+AnomalyDetectionVec(x = river$nitrate, period = 12, direction = 'both', plot = T)
+
+
+
+# Grubbs' test can only take an extreme value as a candidate for an outlier, 
+# while Seasonal-Hybrid ESD explicitly accounts for the repeating seasonal patterns. 
+# Therefore, it is likely that the extra anomalies have been identified as extreme with 
+# respect to the seasonal pattern in the data.
+
+
+
+# k-nearest neighbors distance score ----
+# anomalies usually lie far from their neighbours
+
+library(FNN)
+
+mtcars_knn <- get.knn(data = mtcars, k=3)
+
+head(mtcars_knn$nn.dist,3)
+
+mtcars_score <- rowMeans(mtcars_knn$nn.dist)
+
+which.max(mtcars_score)
+
+
+# It's important to note that this type of distance matrix is only appropriate for numeric continuous 
+# data - for example, it can't be used if the data contain categorical features.
+
+
+# Scaling is very vital
+
+mtcars_scales <- scale(mtcars)
+mtcars_scaled_knn <- get.knn(data = mtcars_scales, k=3)
+
+mtcars_score <- rowMeans(mtcars_scaled_knn$nn.dist)
+mtcars$score <- rowMeans(mtcars_scaled_knn$nn.dist)
+
+
+
+plot(disp~hp, cex = sqrt(score), data=mtcars, pch=20)  # sqrt(score) to limit the size of the data points
+
+# The largest anomaly scores here were those points appearing outside the main cluster 
+# of points. Note that when there are more than two input columns, it becomes harder to 
+# visualize the score with a single plot.
+
+
+
+# Local outlier factor ----
+# knn is for global anomaly, LOF is for local anomalies
+
+library(dbscan)
+mtcars_lof <- lof(scale(mtcars),k=5)
+
+
+# LOF = density around each of point nearest neighbours divided by the density of the points itself
+
+# LOF > 1 , anomalous
+# LOF <=1
+
+# Visualizing LOF
+
+mtcars$lof <- mtcars_lof
+
+plot(disp~hp, cex = sqrt(lof), data=mtcars, pch=20)
+
+
+
+# LOF vs kNN : ----
+# Sometimes, the same point will have both the largest kNN score and LOF score, but that isn't always true as you saw here. Local anomalies aren't always the farthest from the rest of the data.
+
+
+
+# Isolation tree : ----
+# install.packages("remotes")
+# remotes::install_github("Zelazny7/isofor")
+
+library(isofor)
+
+# fiting the model
+mtcars_tree <- iForest(mtcars, nt=2)  # nt is number of isolation tree nt more than one implies growing a forest
+
+# generating anomaly score (isolation score)
+mtcars_isolation_tree_score <- predict(mtcars_tree, newdata = mtcars)
+
+# Interpretation of the isolation score:
+# How quickly the data can be isolated by random split
+# Standardized path length
+# if the score is near 1 then it indicates anomalies
+# RULE of thumb nt = 100
+
+
+mtcars$isolatation_tree_score <- predict(mtcars_tree, newdata = mtcars)
+
+library(dplyr)
+# Isolation tree with phi argument ----
+mtcars_tree2 <- iForest(mtcars, nt = 100, phi = 8)  # This means growing 100 trees with 8 data points
+
+mtcars_tree_model_disp_hp <- iForest(mtcars %>% select(disp,hp), nt = 100, phi = 8)
+
+# Visualizing the isolation score ----
+# contour plot is used
+
+mtcars_disp <- seq(min(mtcars$disp), max(mtcars$disp), length.out = 20)
+
+mtcars_hp <- seq(min(mtcars$hp), max(mtcars$hp), length.out = 20)
+
+mtcars_grid <- expand.grid(disp = mtcars_disp, hp = mtcars_hp)
+
+
+mtcars_grid$scores <- predict(mtcars_tree_model_disp_hp, mtcars_grid)
+
+library(lattice)
+contourplot(scores~disp+hp, data = mtcars_grid, region = TRUE)
+
+
+
+# Use of quantiles ----
+high_score <- quantile(mtcars$disp, probs = 0.99)
+
+mtcars$binary_score_from_quantile <- as.numeric(mtcars$score >= high_score)
+
+
+
+# Working with categorical features by categorical variable converted to factor then using isolation forest ----
+# iForest is limited to variables with only 32 unique values
+
+# Gower distance measure measures distance between points with categorical & numeric features ----
+library(cluster)
+
+sat_dist <- daisy(sat[,-1], metric = "gower")
+
+sat_lof <- lof(sat_dist, k=10)
+
+# Range of values in the distance matrix
+range(as.matrix(sat_dist))
+
